@@ -14350,6 +14350,8 @@ in
 
   opera = callPackage ../applications/networking/browsers/opera {};
 
+  opera12 = callPackage ../applications/networking/browsers/opera12 {};
+
   vivaldi = callPackage ../applications/networking/browsers/vivaldi {};
 
   opusfile = callPackage ../applications/audio/opusfile { };
