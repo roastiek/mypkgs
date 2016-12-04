@@ -12259,6 +12259,8 @@ in
 
   tango-icon-theme = callPackage ../data/icons/tango-icon-theme { };
 
+  tango-extras-icon-theme = callPackage ../data/icons/tango-extras-icon-theme { };
+
   themes = name: callPackage (../data/misc/themes + ("/" + name + ".nix")) {};
 
   theano = callPackage ../data/fonts/theano { };
