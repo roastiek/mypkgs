@@ -1,0 +1,221 @@
+diff --git a/mail/e-mail-paned-view.c b/mail/e-mail-paned-view.c
+index 902dbe1..f13e68c 100644
+--- a/mail/e-mail-paned-view.c
++++ b/mail/e-mail-paned-view.c
+@@ -56,6 +56,8 @@ struct _EMailPanedViewPrivate {
+ 
+ 	/* Signal handler IDs */
+ 	guint message_list_built_id;
++
++	gboolean restoring_cursor_uid;
+ };
+ 
+ enum {
+@@ -139,10 +141,7 @@ mail_paned_view_message_list_built_cb (EMailView *view,
+ 
+ 	key_file = e_shell_view_get_state_key_file (shell_view);
+ 
+-	if (message_list->cursor_uid != NULL)
+-		;  /* do nothing */
+-
+-	else if (folder == NULL)
++	if (folder == NULL)
+ 		;  /* do nothing */
+ 
+ 	else if (e_shell_window_get_safe_mode (shell_window))
+@@ -166,8 +165,27 @@ mail_paned_view_message_list_built_cb (EMailView *view,
+ 		if (!message_list_contains_uid (message_list, uid))
+ 			e_mail_reader_unset_folder_just_selected (E_MAIL_READER (view));
+ 
++		priv->restoring_cursor_uid = TRUE;
++		e_tree_show_cursor_after_reflow (E_TREE(message_list));
+ 		/* Use selection fallbacks if UID is not found. */
+-		message_list_select_uid (message_list, uid, TRUE);
++		message_list_select_uid_wf (message_list, uid,
++			MESSAGE_LIST_SELECT_UID_WITH_FALLBACK |
++			MESSAGE_LIST_SELECT_UID_IMMEDIATE_CALLBACK);
++		priv->restoring_cursor_uid = FALSE;
++
++		/* Reconnects callback if was not possible to restore cursor uid.
++		 * This happens mostly for search folder, because they are empty, when
++		 * this callback is firstly called. So we keep trying again, when
++		 * new messages are added to the folder or user selects a different
++		 * message from the folder. */
++		if (g_strcmp0 (MESSAGE_LIST (message_list)->cursor_uid, uid) != 0 &&
++			priv->message_list_built_id == 0) {
++
++			priv->message_list_built_id = g_signal_connect_swapped (
++	            message_list, "message-list-built",
++	            G_CALLBACK (mail_paned_view_message_list_built_cb),
++	            view);
++		}
+ 
+ 		g_free (uid);
+ 	}
+@@ -186,6 +204,7 @@ mail_paned_view_message_selected_cb (EMailView *view,
+ 	const gchar *key;
+ 	gchar *folder_uri;
+ 	gchar *group_name;
++	EMailPanedViewPrivate *priv;
+ 
+ 	folder = message_list_ref_folder (message_list);
+ 
+@@ -196,6 +215,22 @@ mail_paned_view_message_selected_cb (EMailView *view,
+ 		return;
+ 
+ 	shell_view = e_mail_view_get_shell_view (view);
++
++	/* Do not update selected message if this callback was called from
++	 * mail_paned_view_message_list_built_cb. Otherwise original message_uid
++	 * in state can be lost. */
++	priv = E_MAIL_PANED_VIEW_GET_PRIVATE (view);
++	if (priv->restoring_cursor_uid)
++		return;
++
++	/* Message was propably selected by user. No need to try to restore cursor
++	 * uid from state anymore */
++	if (priv->message_list_built_id != 0) {
++		g_signal_handler_disconnect (
++			message_list, priv->message_list_built_id);
++		priv->message_list_built_id = 0;
++	}
++
+ 	key_file = e_shell_view_get_state_key_file (shell_view);
+ 
+ 	folder_uri = e_mail_folder_uri_from_folder (folder);
+@@ -749,6 +784,8 @@ mail_paned_view_constructed (GObject *object)
+ 	reader = E_MAIL_READER (object);
+ 	message_list = e_mail_reader_get_message_list (reader);
+ 
++	priv->restoring_cursor_uid = FALSE;
++
+ 	g_signal_connect_swapped (
+ 		message_list, "message-selected",
+ 		G_CALLBACK (mail_paned_view_message_selected_cb),
+diff --git a/mail/message-list.c b/mail/message-list.c
+index 573622e..0fb0972 100644
+--- a/mail/message-list.c
++++ b/mail/message-list.c
+@@ -120,6 +120,9 @@ struct _MessageListPrivate {
+ 	GSettings *mail_settings;
+ 	gchar **re_prefixes;
+ 	GMutex re_prefixes_lock;
++
++	/* do not emit "message-selected" through on_cursor_activated_idle */
++	gboolean emit_message_selected_immediate;
+ };
+ 
+ /* XXX Plain GNode suffers from O(N) tail insertions, and that won't
+@@ -1152,15 +1155,29 @@ message_list_can_select (MessageList *message_list,
+  *
+  * Selects the message with the given UID.
+  **/
++
+ void
+ message_list_select_uid (MessageList *message_list,
+                          const gchar *uid,
+                          gboolean with_fallback)
+ {
++	guint32 flags = (with_fallback) ? MESSAGE_LIST_SELECT_UID_WITH_FALLBACK : 0;
++	message_list_select_uid_wf (message_list, uid, flags);
++}
++
++void
++message_list_select_uid_wf (MessageList *message_list,
++                            const gchar *uid,
++                            guint32 flags)
++{
+ 	MessageListPrivate *priv;
+ 	GHashTable *uid_nodemap;
+ 	GNode *node = NULL;
+ 	RegenData *regen_data = NULL;
++	gboolean with_fallback =
++		(flags & MESSAGE_LIST_SELECT_UID_WITH_FALLBACK) != 0;
++	gboolean immediate_callback =
++		(flags & MESSAGE_LIST_SELECT_UID_IMMEDIATE_CALLBACK) != 0;
+ 
+ 	g_return_if_fail (IS_MESSAGE_LIST (message_list));
+ 
+@@ -1209,14 +1226,18 @@ message_list_select_uid (MessageList *message_list,
+ 		tree = E_TREE (message_list);
+ 		old_cur = e_tree_get_cursor (tree);
+ 
+-		/* This will emit a changed signal that we'll pick up */
++		/* This will emit a changed signal that we'll pick up,
++		 * unless IMMEDIATE_CALLBACK was requested */
++		priv->emit_message_selected_immediate = immediate_callback;
+ 		e_tree_set_cursor (tree, node);
++		priv->emit_message_selected_immediate = FALSE;
+ 
+-		if (old_cur == node)
++		if (old_cur == node || immediate_callback) {
+ 			g_signal_emit (
+ 				message_list,
+ 				signals[MESSAGE_SELECTED],
+ 				0, message_list->cursor_uid);
++		}
+ 	} else if (message_list->just_set_folder) {
+ 		g_free (message_list->cursor_uid);
+ 		message_list->cursor_uid = g_strdup (uid);
+@@ -3579,6 +3600,7 @@ message_list_init (MessageList *message_list)
+ 	message_list->priv->mail_settings = e_util_ref_settings ("org.gnome.evolution.mail");
+ 	message_list->priv->re_prefixes = NULL;
+ 	message_list->priv->group_by_threads = TRUE;
++	message_list->priv->emit_message_selected_immediate = FALSE;
+ }
+ 
+ static void
+@@ -4878,7 +4900,9 @@ on_cursor_activated_cmd (ETree *tree,
+ 	g_free (message_list->cursor_uid);
+ 	message_list->cursor_uid = g_strdup (new_uid);
+ 
+-	if (!message_list->idle_id) {
++	if (!message_list->idle_id &&
++		!message_list->priv->emit_message_selected_immediate) {
++
+ 		message_list->idle_id =
+ 			g_idle_add_full (
+ 				G_PRIORITY_LOW, on_cursor_activated_idle,
+@@ -4917,11 +4941,14 @@ on_selection_changed_cmd (ETree *tree,
+ 	} else {
+ 		g_free (message_list->cursor_uid);
+ 		message_list->cursor_uid = g_strdup (newuid);
+-		if (message_list->idle_id == 0)
++		if (!message_list->idle_id &&
++			!message_list->priv->emit_message_selected_immediate) {
++
+ 			message_list->idle_id = g_idle_add_full (
+ 				G_PRIORITY_LOW,
+ 				on_cursor_activated_idle,
+ 				message_list, NULL);
++		}
+ 	}
+ 
+ 	message_list->last_sel_single = selected_count == 1;
+diff --git a/mail/message-list.h b/mail/message-list.h
+index 2e7c68e..73805c8 100644
+--- a/mail/message-list.h
++++ b/mail/message-list.h
+@@ -148,6 +148,12 @@ typedef enum {
+ 	MESSAGE_LIST_SELECT_INCLUDE_COLLAPSED = 1 << 2 /* whether to search collapsed nodes as well */
+ } MessageListSelectDirection;
+ 
++typedef enum {
++	MESSAGE_LIST_SELECT_UID_NONE = 0,
++	MESSAGE_LIST_SELECT_UID_WITH_FALLBACK = 1 << 0,
++	MESSAGE_LIST_SELECT_UID_IMMEDIATE_CALLBACK = 1 << 1,
++} MessageListSelectUid;
++
+ GType		message_list_get_type		(void);
+ GtkWidget *	message_list_new		(EMailSession *session);
+ EMailSession *	message_list_get_session	(MessageList *message_list);
+@@ -191,6 +197,9 @@ gboolean	message_list_can_select		(MessageList *message_list,
+ void		message_list_select_uid		(MessageList *message_list,
+ 						 const gchar *uid,
+ 						 gboolean with_fallback);
++void		message_list_select_uid_wf	(MessageList *message_list,
++						 const gchar *uid,
++						 guint32 flags);
+ void		message_list_select_next_thread	(MessageList *message_list);
+ void		message_list_select_prev_thread	(MessageList *message_list);
+ void		message_list_select_all		(MessageList *message_list);

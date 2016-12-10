@@ -1,0 +1,83 @@
+diff --git a/mail/e-mail-reader.c b/mail/e-mail-reader.c
+index 84545e6..5145f7c 100644
+--- a/mail/e-mail-reader.c
++++ b/mail/e-mail-reader.c
+@@ -1806,6 +1806,14 @@ action_mail_zoom_out_cb (GtkAction *action,
+ }
+ 
+ static void
++action_mail_mark_read_and_next_unread_cb (GtkAction *action,
++                                          EMailReader *reader)
++{
++	action_mail_mark_read_cb (action, reader);
++	action_mail_next_unread_cb (action, reader);
++}
++
++static void
+ action_search_folder_recipient_cb (GtkAction *action,
+                                    EMailReader *reader)
+ {
+@@ -2295,6 +2303,13 @@ static GtkActionEntry mail_reader_entries[] = {
+ 	  N_("Decrease the text size"),
+ 	  G_CALLBACK (action_mail_zoom_out_cb) },
+ 
++	{ "mail-mark-read-and-next-unread",
++	  "mail-mark-read-and-next-unread",
++	  N_("Read and Next Unread Message"),
++	  NULL,
++	  N_("TODO"),
++	  G_CALLBACK (action_mail_mark_read_and_next_unread_cb) },
++
+ 	/*** Menus ***/
+ 
+ 	{ "mail-create-menu",
+@@ -2489,7 +2504,11 @@ static EPopupActionEntry mail_reader_popup_entries[] = {
+ 
+ 	{ "mail-popup-undelete",
+ 	  NULL,
+-	  "mail-undelete" }
++	  "mail-undelete" },
++
++	{ "mail-popup-mark-read-and-next-unread",
++	  N_("Mark as Read and Select Next Unread"),
++	  "mail-mark-read-and-next-unread" },
+ };
+ 
+ static GtkToggleActionEntry mail_reader_toggle_entries[] = {
+@@ -2603,6 +2622,12 @@ mail_reader_key_press_event_cb (EMailReader *reader,
+ 			action_name = (shift_pressed) ? "mail-mark-unread" : "mail-mark-read";
+ 			break;
+ 
++		case GDK_KEY_G:
++		case GDK_KEY_g:
++		case GDK_KEY_space:
++			action_name = "mail-mark-read-and-next-unread";
++			break;
++
+ #ifdef HAVE_XFREE
+ 		case XF86XK_Reply:
+ 			action_name = "mail-reply-all";
+@@ -3727,6 +3752,11 @@ mail_reader_update_actions (EMailReader *reader,
+ 	action = e_mail_reader_get_action (reader, action_name);
+ 	gtk_action_set_sensitive (action, sensitive);
+ 
++	action_name = "mail-mark-read-and-next-unread";
++	sensitive = any_messages_selected;
++	action = e_mail_reader_get_action (reader, action_name);
++	gtk_action_set_sensitive (action, sensitive);
++
+ 	action_name = "mail-mark-unignore-thread-sub";
+ 	sensitive = selection_has_ignore_thread_messages;
+ 	action = e_mail_reader_get_action (reader, action_name);
+diff --git a/ui/evolution-mail.ui b/ui/evolution-mail.ui
+index c7cec4f..c758c53 100644
+--- a/ui/evolution-mail.ui
++++ b/ui/evolution-mail.ui
+@@ -106,6 +106,7 @@
+     <menuitem action='mail-popup-archive'/>
+     <separator/>
+     <menuitem action='mail-popup-mark-read'/>
++    <menuitem action='mail-popup-mark-read-and-next-unread'/>
+     <menuitem action='mail-popup-mark-unread'/>
+     <menuitem action='mail-popup-mark-important'/>
+     <menuitem action='mail-popup-mark-unimportant'/>

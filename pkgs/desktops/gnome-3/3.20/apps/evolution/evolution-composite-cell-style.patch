@@ -1,0 +1,13 @@
+diff --git a/mail/message-list.c b/mail/message-list.c
+index e89a865..573622e 100644
+--- a/mail/message-list.c
++++ b/mail/message-list.c
+@@ -2121,6 +2121,8 @@ static ECell * create_composite_cell (gint col)
+ 	cell_sub = e_cell_text_new (NULL, GTK_JUSTIFY_LEFT);
+ 	g_object_set (
+ 		cell_sub,
++		"bold_column", COL_UNREAD,
++		"italic-column", COL_ITALIC,
+ 		"color_column", COL_COLOUR,
+ 		NULL);
+ 	cell_tree = e_cell_tree_new (TRUE, cell_sub);

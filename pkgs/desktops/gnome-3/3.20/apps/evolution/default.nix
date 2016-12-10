@@ -2,11 +2,13 @@
 , pkgconfig, gtk3, glib, libnotify, gtkspell3
 , makeWrapper, itstool, shared_mime_info, libical, db, gcr, sqlite
 , gnome3, librsvg, gdk_pixbuf, libsecret, nss, nspr, icu, libtool
-, libcanberra_gtk3, bogofilter, gst_all_1, procps, p11_kit }:
+, libcanberra_gtk3, bogofilter, gst_all_1, procps, p11_kit
+, plugins, symlinkJoin
+}:
 
 let
   majVer = gnome3.version;
-in stdenv.mkDerivation rec {
+  unwrapped = stdenv.mkDerivation rec {
   inherit (import ./src.nix fetchurl) name src;
 
   doCheck = true;
@@ -26,6 +28,15 @@ in stdenv.mkDerivation rec {
 
   configureFlags = [ "--disable-spamassassin" "--disable-pst-import" "--disable-autoar"
                      "--disable-libcryptui" ];
+
+  patches = [
+    ./evolution-plugin-path.patch
+    ./evolution-composite-cell-style.patch
+    ./evolution-persistent-folder-ids.patch
+    ./evolution-repeat-cursod-uid-restore.patch
+    ./evolution-single-key-mark-read.patch
+    ./evolution-mark-read-and-next-unread.patch
+  ];
 
   NIX_CFLAGS_COMPILE = "-I${nspr.dev}/include/nspr -I${nss.dev}/include/nss -I${glib.dev}/include/gio-unix-2.0";
 
@@ -48,4 +59,11 @@ in stdenv.mkDerivation rec {
     license = licenses.lgpl2Plus;
     platforms = platforms.linux;
   };
-}
+};
+
+in if plugins == [] then unwrapped
+    else import ./wrapper.nix {
+      inherit stdenv makeWrapper symlinkJoin plugins;
+      evolution = unwrapped;
+      version = gnome3.version;
+    }

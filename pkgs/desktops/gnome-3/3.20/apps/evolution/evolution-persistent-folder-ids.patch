@@ -1,0 +1,12 @@
+diff --git a/mail/e-mail-ui-session.c b/mail/e-mail-ui-session.c
+index fd62835..f81d369 100644
+--- a/mail/e-mail-ui-session.c
++++ b/mail/e-mail-ui-session.c
+@@ -998,6 +998,7 @@ e_mail_ui_session_new (ESourceRegistry *registry)
+ 		"registry", registry,
+ 		"user-data-dir", user_data_dir,
+ 		"user-cache-dir", user_cache_dir,
++		"persistent-folder-ids", TRUE,
+ 		NULL);
+ }
+ 

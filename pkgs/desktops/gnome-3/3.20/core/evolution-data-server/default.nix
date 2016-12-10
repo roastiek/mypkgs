@@ -16,6 +16,8 @@ stdenv.mkDerivation rec {
   configureFlags = [ "--disable-uoa" "--disable-google-auth" ]
                    ++ stdenv.lib.optional valaSupport "--enable-vala-bindings";
 
+  patches = [ ./evolution-data-server-persistent-folder-ids.patch ];
+
   preFixup = ''
     for f in "$out/libexec/"*; do
       wrapProgram "$f" --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH"
