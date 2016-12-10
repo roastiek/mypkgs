@@ -1,6 +1,7 @@
 { fetchurl, stdenv, pkgconfig, gnome3, python
 , intltool, libsoup, libxml2, libsecret, icu, sqlite
-, p11_kit, db, nspr, nss, libical, gperf, makeWrapper, valaSupport ? true, vala_0_32 }:
+, p11_kit, db, nspr, nss, libical, gperf, makeWrapper, valaSupport ? true, vala_0_32
+, ids_patch ? false }:
 
 stdenv.mkDerivation rec {
   inherit (import ./src.nix fetchurl) name src;
@@ -16,7 +17,7 @@ stdenv.mkDerivation rec {
   configureFlags = [ "--disable-uoa" "--disable-google-auth" ]
                    ++ stdenv.lib.optional valaSupport "--enable-vala-bindings";
 
-  patches = [ ./evolution-data-server-persistent-folder-ids.patch ];
+  patches = if ids_patch then [ ./evolution-data-server-persistent-folder-ids.patch ] else null;
 
   preFixup = ''
     for f in "$out/libexec/"*; do
