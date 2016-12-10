@@ -1,0 +1,45 @@
+diff -ur evolution-rss-0.3.95.orig/src/evolution-import-rss.c evolution-rss-0.3.95/src/evolution-import-rss.c
+--- evolution-rss-0.3.95.orig/src/evolution-import-rss.c	2013-03-21 16:58:31.000000000 +0100
++++ evolution-rss-0.3.95/src/evolution-import-rss.c	2016-12-09 21:57:15.587487729 +0100
+@@ -33,7 +33,7 @@
+ #include <gio/gio.h>
+ 
+ #define d(x)
+-#define EVOLUTION EVOLUTION_BINDIR"/bin/evolution&"
++//#define EVOLUTION EVOLUTION_BINDIR"/bin/evolution&"
+ 
+ #define RSS_DBUS_PATH "/org/gnome/feed/Reader"
+ #define RSS_DBUS_SERVICE "org.gnome.feed.Reader"
+@@ -174,7 +174,7 @@
+ 	evo_running = send_dbus_ping ();
+ 
+ 	while (!evo_running && i<2) {
+-		run(EVOLUTION);
++		run(EVOLUTION "&");
+ 		g_print("Starting evolution...\n");
+ 		while (!(evo_running = send_dbus_ping ()))
+ 			sleep(1);
+diff -ur evolution-rss-0.3.95.orig/src/Makefile.am evolution-rss-0.3.95/src/Makefile.am
+--- evolution-rss-0.3.95.orig/src/Makefile.am	2014-10-02 11:21:35.000000000 +0200
++++ evolution-rss-0.3.95/src/Makefile.am	2016-12-09 21:57:51.755137049 +0100
+@@ -11,7 +11,7 @@
+ 	-DEVOLUTION_VERSION_STRING=\"$(EVOLUTION_EXEC_VERSION)\"\
+ 	-DEVOLUTION_VERSION=$(evolution_version_int)		\
+ 	-DDATASERVER_VERSION=$(DATASERVER_VERSION)		\
+-	-DEVOLUTION_BINDIR=\""$(exec_prefix)"\"			\
++	-DEVOLUTION=\""$(EVOLUTION)"\"			\
+ 	-DEVOLUTION_UIDIR=\""$(uidir)"\"			\
+ 	-DEVOLUTION_ICONDIR=\""$(ICON_DIR)"\"			\
+ 	-DLIBSOUP_VERSION="$(SOUP_VERSION)"			\
+diff -ur evolution-rss-0.3.95.orig/src/Makefile.in evolution-rss-0.3.95/src/Makefile.in
+--- evolution-rss-0.3.95.orig/src/Makefile.in	2015-03-26 11:08:32.000000000 +0100
++++ evolution-rss-0.3.95/src/Makefile.in	2016-12-09 22:07:48.843154211 +0100
+@@ -523,7 +523,7 @@
+ 	-DEVOLUTION_VERSION_STRING=\"$(EVOLUTION_EXEC_VERSION)\" \
+ 	-DEVOLUTION_VERSION=$(evolution_version_int) \
+ 	-DDATASERVER_VERSION=$(DATASERVER_VERSION) \
+-	-DEVOLUTION_BINDIR=\""$(exec_prefix)"\" \
++	-DEVOLUTION=\""$(EVOLUTION)"\" \
+ 	-DEVOLUTION_UIDIR=\""$(uidir)"\" \
+ 	-DEVOLUTION_ICONDIR=\""$(ICON_DIR)"\" \
+ 	-DLIBSOUP_VERSION="$(SOUP_VERSION)" \

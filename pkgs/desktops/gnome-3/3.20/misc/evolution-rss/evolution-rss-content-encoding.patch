@@ -1,0 +1,13 @@
+diff --git a/src/network-soup.c b/src/network-soup.c
+index e9551a2..510d6c6 100644
+--- a/src/network-soup.c
++++ b/src/network-soup.c
+@@ -800,6 +800,8 @@ net_get_unblocking(gchar *url,
+ 	}
+ #endif
+ 
++	soup_session_add_feature_by_type(soup_sess, SOUP_TYPE_CONTENT_DECODER);
++
+ 	if (cb && data) {
+ 		info = g_new0(CallbackInfo, 1);
+ 		info->user_cb = cb;
