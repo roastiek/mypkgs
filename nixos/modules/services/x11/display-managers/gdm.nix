@@ -165,8 +165,8 @@ in
         auth     required       pam_env.so envfile=${config.system.build.pamEnvironment}
 
         auth     required       pam_succeed_if.so uid >= 1000 quiet
+        auth     substack       login
         auth     optional       ${gnome3.gnome_keyring}/lib/security/pam_gnome_keyring.so
-        auth     ${if config.security.pam.enableEcryptfs then "required" else "sufficient"} pam_unix.so nullok likeauth
         ${optionalString config.security.pam.enableEcryptfs
           "auth required ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so unwrap"}
 
@@ -188,21 +188,22 @@ in
         session  optional       ${gnome3.gnome_keyring}/lib/security/pam_gnome_keyring.so auto_start
       '';
 
+#        ${optionalString (! config.security.pam.enableEcryptfs)
+#          "auth     required       pam_deny.so"}
       gdm-password.text = ''
         auth     requisite      pam_nologin.so
         auth     required       pam_env.so envfile=${config.system.build.pamEnvironment}
 
         auth     required       pam_succeed_if.so uid >= 1000 quiet
+        auth     substack       passwd
         auth     optional       ${gnome3.gnome_keyring}/lib/security/pam_gnome_keyring.so
-        auth     ${if config.security.pam.enableEcryptfs then "required" else "sufficient"} pam_unix.so nullok likeauth
         ${optionalString config.security.pam.enableEcryptfs
           "auth required ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so unwrap"}
-        ${optionalString (! config.security.pam.enableEcryptfs)
-          "auth     required       pam_deny.so"}
 
         account  sufficient     pam_unix.so
 
         password requisite      pam_unix.so nullok sha512
+        -password   optional	${gnome3.gnome_keyring}/lib/security/pam_gnome_keyring.so use_authtok
         ${optionalString config.security.pam.enableEcryptfs
           "password optional ${pkgs.ecryptfs}/lib/security/pam_ecryptfs.so"}
 
