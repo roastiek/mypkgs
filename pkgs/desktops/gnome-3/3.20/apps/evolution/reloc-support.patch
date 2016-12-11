@@ -1,0 +1,129 @@
+diff --git a/e-util/e-alert.c b/e-util/e-alert.c
+index f83f87c..1914f54 100644
+--- a/e-util/e-alert.c
++++ b/e-util/e-alert.c
+@@ -317,6 +317,7 @@ e_alert_load_tables (void)
+ 	gchar *base;
+ 	struct _e_alert_table *table;
+ 	gint i;
++    const gchar* privdatadir = g_getenv("EVOLUTION_PRIVDATADIR");
+ 
+ 	if (alert_table != NULL)
+ 		return;
+@@ -334,7 +335,9 @@ e_alert_load_tables (void)
+ 	g_hash_table_insert (alert_table, (gpointer) table->domain, table);
+ 
+ 	/* look for installed alert tables */
+-	base = g_build_filename (EVOLUTION_PRIVDATADIR, "errors", NULL);
++    if (privdatadir == NULL) privdatadir = EVOLUTION_PRIVDATADIR;
++
++	base = g_build_filename (privdatadir, "errors", NULL);
+ 	dir = g_dir_open (base, 0, NULL);
+ 	if (dir == NULL) {
+ 		g_free (base);
+diff --git a/e-util/e-plugin.c b/e-util/e-plugin.c
+index 5657b75..1684b21 100644
+--- a/e-util/e-plugin.c
++++ b/e-util/e-plugin.c
+@@ -488,6 +488,7 @@ e_plugin_load_plugins (void)
+ 	GSettings *settings;
+ 	gchar **strv;
+ 	gint i;
++    const gchar *plugin_dir;
+ 
+ 	if (eph_types != NULL)
+ 		return 0;
+@@ -513,16 +514,19 @@ e_plugin_load_plugins (void)
+ 	g_strfreev (strv);
+ 	g_object_unref (settings);
+ 
++    plugin_dir = g_getenv ("EVOLUTION_PLUGINDIR");
++    if (plugin_dir == NULL || !g_file_test (plugin_dir, G_FILE_TEST_IS_DIR)) {
++        plugin_dir = EVOLUTION_PLUGINDIR;
++    }
+ 	for (i = 0; i < 3; i++) {
+ 		GDir *dir;
+ 		const gchar *d;
+-		const gchar *path = EVOLUTION_PLUGINDIR;
+ 
+-		pd (printf ("scanning plugin dir '%s'\n", path));
++		pd (printf ("scanning plugin dir '%s'\n", plugin_dir));
+ 
+-		dir = g_dir_open (path, 0, NULL);
++		dir = g_dir_open (plugin_dir, 0, NULL);
+ 		if (dir == NULL) {
+-			/*g_warning("Could not find plugin path: %s", path);*/
++			/*g_warning("Could not find plugin path: %s", plugin_dir);*/
+ 			continue;
+ 		}
+ 
+@@ -530,7 +534,7 @@ e_plugin_load_plugins (void)
+ 			if (g_str_has_suffix  (d, ".eplug")) {
+ 				gchar *name;
+ 
+-				name = g_build_filename (path, d, NULL);
++				name = g_build_filename (plugin_dir, d, NULL);
+ 				ep_load (name, i);
+ 				g_free (name);
+ 			}
+diff --git a/shell/e-shell-view.c b/shell/e-shell-view.c
+index f7a5d06..386bc86 100644
+--- a/shell/e-shell-view.c
++++ b/shell/e-shell-view.c
+@@ -113,6 +113,7 @@ shell_view_init_search_context (EShellViewClass *class)
+ 	EShellBackend *shell_backend;
+ 	ERuleContext *search_context;
+ 	const gchar *config_dir;
++    const gchar *rule_dir = g_getenv("EVOLUTION_RULEDIR");
+ 	gchar *system_filename;
+ 	gchar *user_filename;
+ 
+@@ -125,8 +126,9 @@ shell_view_init_search_context (EShellViewClass *class)
+ 	/* The basename for built-in searches is specified in the
+ 	 * shell view class.  All built-in search rules live in the
+ 	 * same directory. */
++    if (rule_dir == NULL) rule_dir = EVOLUTION_RULEDIR;
+ 	system_filename = g_build_filename (
+-		EVOLUTION_RULEDIR, class->search_rules, NULL);
++		rule_dir, class->search_rules, NULL);
+ 
+ 	/* The filename for custom saved searches is always of
+ 	 * the form "$(shell_backend_config_dir)/searches.xml". */
+@@ -164,7 +166,8 @@ shell_view_init_view_collection (EShellViewClass *class)
+ 	g_return_if_fail (E_IS_SHELL_BACKEND (shell_backend));
+ 	name = E_SHELL_BACKEND_GET_CLASS (shell_backend)->name;
+ 
+-	base_directory = EVOLUTION_GALVIEWSDIR;
++    base_directory = g_getenv("EVOLUTION_GALVIEWSDIR");
++    if (base_directory == NULL) base_directory = EVOLUTION_GALVIEWSDIR;
+ 	system_directory = g_build_filename (base_directory, name, NULL);
+ 
+ 	base_directory = e_shell_backend_get_config_dir (shell_backend);
+diff --git a/shell/main.c b/shell/main.c
+index 1083c7d..2a2b715 100644
+--- a/shell/main.c
++++ b/shell/main.c
+@@ -362,6 +362,7 @@ create_default_shell (void)
+ 	GApplicationFlags flags;
+ 	gboolean online = TRUE;
+ 	GError *error = NULL;
++    const gchar* module_dir = g_getenv("EVOLUTION_MODULEDIR");
+ 
+ 	settings = e_util_ref_settings ("org.gnome.evolution.shell");
+ 
+@@ -397,12 +398,14 @@ create_default_shell (void)
+ 	flags = G_APPLICATION_HANDLES_OPEN |
+ 		G_APPLICATION_HANDLES_COMMAND_LINE;
+ 
++    if (module_dir == NULL) module_dir = EVOLUTION_MODULEDIR;
++
+ 	shell = g_initable_new (
+ 		E_TYPE_SHELL, NULL, &error,
+ 		"application-id", APPLICATION_ID,
+ 		"flags", flags,
+ 		"geometry", geometry,
+-		"module-directory", EVOLUTION_MODULEDIR,
++		"module-directory", module_dir,
+ 		"express-mode", EXPRESS_MODE,
+ 		"online", online,
+ 		"register-session", TRUE,
