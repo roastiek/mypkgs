@@ -17395,6 +17395,13 @@ in
 
   phabricator = callPackage ../misc/phabricator { };
 
+  libphutil-src = callPackage ../misc/phabricator/libphutil-src.nix
+    { php = php56; };
+  arcanist-src = callPackage ../misc/phabricator/arcanist-src.nix
+    { php = php56; };
+  phabricator-src = callPackage ../misc/phabricator/phabricator-src.nix
+    { php = php56; };
+
   physlock = callPackage ../misc/screensavers/physlock { };
 
   pjsip = callPackage ../applications/networking/pjsip { };

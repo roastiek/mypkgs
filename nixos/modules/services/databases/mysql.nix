@@ -14,7 +14,7 @@ let
 
   mysqldOptions =
     "--user=${cfg.user} --datadir=${cfg.dataDir} --basedir=${mysql} " +
-    "--pid-file=${pidFile}";
+    "--pid-file=${pidFile} ${cfg.extraArgs}";
 
   myCnf = pkgs.writeText "my.cnf"
   ''
@@ -91,6 +91,11 @@ in
           <literal>[mysqld]</literal> section so you don't need to explicitly
           state it again.
         '';
+      };
+
+      extraArgs = mkOption {
+        default = "";
+        description = "";
       };
 
       initialDatabases = mkOption {
