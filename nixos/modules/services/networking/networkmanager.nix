@@ -12,6 +12,7 @@ let
   configFile = writeText "NetworkManager.conf" ''
     [main]
     plugins=keyfile
+    dns=dnsmasq
 
     [keyfile]
     ${optionalString (config.networking.hostName != "")
